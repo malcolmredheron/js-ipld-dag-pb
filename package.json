@@ -55,6 +55,7 @@
     "protocol-buffers": "^3.2.1",
     "pull-stream": "^3.5.0",
     "pull-traverse": "^1.0.3",
+    "sha.js": "^2.4.8",
     "stable": "^0.1.6"
   },
   "devDependencies": {

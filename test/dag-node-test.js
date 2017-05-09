@@ -30,12 +30,47 @@ const testBlockUnnamedLinks = loadFixture(__dirname, '/fixtures/test-block-unnam
 module.exports = (repo) => {
   const bs = new BlockService(repo)
 
+  // Use this instead of DAGNode.create to create the node both synchronously and asynchronously and check that the
+  // two have the same hashes or errors.
+  const DAGNodeCreate = function (data, dagLinks, hashAlg, callback) {
+    if (typeof data === 'function') {
+      callback = data
+      data = undefined
+    }
+    if (typeof dagLinks === 'function') {
+      callback = dagLinks
+      dagLinks = []
+    }
+    if (typeof hashAlg === 'function') {
+      callback = hashAlg
+      hashAlg = undefined
+    }
+
+    let syncErr
+    let syncNode
+    let createdSyncly = false
+    DAGNode.createSync(data, dagLinks, hashAlg, (err, node) => {
+      createdSyncly = true
+      syncErr = err
+      syncNode = node
+    })
+    // Make sure that the callback ran synchronously.
+    expect(createdSyncly).to.be.true()
+    DAGNode.create(data, dagLinks, hashAlg, (err, node) => {
+      expect(syncErr).to.be.equal(err)
+      if (!err) {
+        expect(syncNode.toJSON().multihash).to.be.equal(node.toJSON().multihash)
+      }
+      callback(err, node)
+    })
+  }
+
   describe('DAGNode', () => {
     it('create a node', (done) => {
       expect(7).checks(done)
       const data = new Buffer('some data')
 
-      DAGNode.create(data, (err, node) => {
+      DAGNodeCreate(data, (err, node) => {
         expect(err).to.not.exist.mark()
         expect(node.data.length).to.be.above(0).mark()
         expect(Buffer.isBuffer(node.data)).to.be.true.mark()
@@ -57,7 +92,7 @@ module.exports = (repo) => {
       expect(7).checks(done)
       const data = 'some data'
 
-      DAGNode.create(data, (err, node) => {
+      DAGNodeCreate(data, (err, node) => {
         expect(err).to.not.exist.mark()
         expect(node.data.length).to.be.above(0).mark()
         expect(Buffer.isBuffer(node.data)).to.be.true.mark()
@@ -92,7 +127,7 @@ module.exports = (repo) => {
 
       series([
         (cb) => {
-          DAGNode.create(someData, l1, (err, node) => {
+          DAGNodeCreate(someData, l1, (err, node) => {
             expect(err).to.not.exist()
             node1 = node
             cb()
@@ -103,7 +138,7 @@ module.exports = (repo) => {
             return new DAGLink(l.Name, l.Size, l.Hash)
           })
 
-          DAGNode.create(someData, l2, (err, node) => {
+          DAGNodeCreate(someData, l2, (err, node) => {
             expect(err).to.not.exist()
             node2 = node
             expect(node2.links).to.eql([l2[1], l2[0]])
@@ -125,7 +160,7 @@ module.exports = (repo) => {
     })
 
     it('create with empty link name', (done) => {
-      DAGNode.create(new Buffer('hello'), [
+      DAGNodeCreate(new Buffer('hello'), [
         new DAGLink('', 10, 'QmXg9Pp2ytZ14xgmQjYEiHjVjMFXzCVVEcRTWJBmLgR39U')
       ], (err, node) => {
         expect(err).to.not.exist()
@@ -139,7 +174,7 @@ module.exports = (repo) => {
       expect(7).checks(done)
       const fromGoIPFS = 'QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n'
 
-      DAGNode.create(new Buffer(0), (err, node) => {
+      DAGNodeCreate(new Buffer(0), (err, node) => {
         expect(err).to.not.exist.mark()
         expect(node.data.length).to.be.equal(0).mark()
         expect(Buffer.isBuffer(node.data)).to.be.true.mark()
@@ -158,10 +193,10 @@ module.exports = (repo) => {
     })
 
     it('fail to create a node with other data types', (done) => {
-      DAGNode.create({}, (err, node) => {
+      DAGNodeCreate({}, (err, node) => {
         expect(err).to.exist()
         expect(node).to.not.exist()
-        DAGNode.create([], (err, node) => {
+        DAGNodeCreate([], (err, node) => {
           expect(err).to.exist()
           expect(node).to.not.exist()
           done()
@@ -175,14 +210,14 @@ module.exports = (repo) => {
 
       series([
         (cb) => {
-          DAGNode.create(new Buffer('1'), (err, node) => {
+          DAGNodeCreate(new Buffer('1'), (err, node) => {
             expect(err).to.not.exist()
             node1 = node
             cb()
           })
         },
         (cb) => {
-          DAGNode.create(new Buffer('2'), (err, node) => {
+          DAGNodeCreate(new Buffer('2'), (err, node) => {
             expect(err).to.not.exist()
             node2 = node
             cb()
@@ -209,14 +244,14 @@ module.exports = (repo) => {
 
       series([
         (cb) => {
-          DAGNode.create(new Buffer('1'), (err, node) => {
+          DAGNodeCreate(new Buffer('1'), (err, node) => {
             expect(err).to.not.exist()
             node1 = node
             cb()
           })
         },
         (cb) => {
-          DAGNode.create(new Buffer('2'), (err, node) => {
+          DAGNodeCreate(new Buffer('2'), (err, node) => {
             expect(err).to.not.exist()
             node2 = node
             cb()
@@ -245,14 +280,14 @@ module.exports = (repo) => {
 
       series([
         (cb) => {
-          DAGNode.create(new Buffer('1'), (err, node) => {
+          DAGNodeCreate(new Buffer('1'), (err, node) => {
             expect(err).to.not.exist()
             node1 = node
             cb()
           })
         },
         (cb) => {
-          DAGNode.create(new Buffer('2'), (err, node) => {
+          DAGNodeCreate(new Buffer('2'), (err, node) => {
             expect(err).to.not.exist()
             node2 = node
             cb()
@@ -282,14 +317,14 @@ module.exports = (repo) => {
 
       series([
         (cb) => {
-          DAGNode.create(new Buffer('1'), (err, node) => {
+          DAGNodeCreate(new Buffer('1'), (err, node) => {
             expect(err).to.not.exist()
             node1a = node
             cb()
           })
         },
         (cb) => {
-          DAGNode.create(new Buffer('2'), (err, node) => {
+          DAGNodeCreate(new Buffer('2'), (err, node) => {
             expect(err).to.not.exist()
             DAGNode.addLink(node1a, node, (err, node) => {
               expect(err).to.not.exist()
@@ -299,7 +334,7 @@ module.exports = (repo) => {
           })
         },
         (cb) => {
-          DAGNode.create(new Buffer('3'), (err, node) => {
+          DAGNodeCreate(new Buffer('3'), (err, node) => {
             expect(err).to.not.exist()
             DAGNode.addLink(node1b, node, (err, node) => {
               expect(err).to.not.exist()
@@ -324,14 +359,14 @@ module.exports = (repo) => {
 
       series([
         (cb) => {
-          DAGNode.create(new Buffer('1'), (err, node) => {
+          DAGNodeCreate(new Buffer('1'), (err, node) => {
             expect(err).to.not.exist()
             node1a = node
             cb()
           })
         },
         (cb) => {
-          DAGNode.create(new Buffer('2'), (err, node) => {
+          DAGNodeCreate(new Buffer('2'), (err, node) => {
             expect(err).to.not.exist()
             node2 = node
             cb()
@@ -364,14 +399,14 @@ module.exports = (repo) => {
 
       series([
         (cb) => {
-          DAGNode.create(new Buffer('1'), (err, node) => {
+          DAGNodeCreate(new Buffer('1'), (err, node) => {
             expect(err).to.not.exist()
             node1a = node
             cb()
           })
         },
         (cb) => {
-          DAGNode.create(new Buffer('2'), (err, node) => {
+          DAGNodeCreate(new Buffer('2'), (err, node) => {
             expect(err).to.not.exist()
             node2 = node
             cb()
@@ -398,7 +433,7 @@ module.exports = (repo) => {
     })
 
     it('get node CID', (done) => {
-      DAGNode.create(new Buffer('some data'), (err, node) => {
+      DAGNodeCreate(new Buffer('some data'), (err, node) => {
         expect(err).to.not.exist()
         util.cid(node, (err, cid) => {
           expect(err).to.not.exist()
@@ -411,7 +446,7 @@ module.exports = (repo) => {
     })
 
     it('marshal a node and store it with block-service', (done) => {
-      DAGNode.create(new Buffer('some data'), (err, node) => {
+      DAGNodeCreate(new Buffer('some data'), (err, node) => {
         expect(err).to.not.exist()
         let block
 
@@ -535,7 +570,7 @@ module.exports = (repo) => {
     })
 
     it('dagNode.toJSON with empty Node', (done) => {
-      DAGNode.create(new Buffer(0), (err, node) => {
+      DAGNodeCreate(new Buffer(0), (err, node) => {
         expect(err).to.not.exist()
         expect(node.toJSON().data).to.eql(new Buffer(0))
         expect(node.toJSON().links).to.eql([])
@@ -547,7 +582,7 @@ module.exports = (repo) => {
 
     it('dagNode.toJSON with data no links', (done) => {
       const data = new Buffer('La cucaracha')
-      DAGNode.create(data, (err, node) => {
+      DAGNodeCreate(data, (err, node) => {
         expect(err).to.not.exist()
         expect(node.toJSON().data).to.eql(data)
         expect(node.toJSON().links).to.eql([])
@@ -573,14 +608,14 @@ module.exports = (repo) => {
       const link1 = new DAGLink(l1.Name, l1.Size, new Buffer(bs58.decode(l1.Hash)))
       const link2 = new DAGLink(l2.Name, l2.Size, new Buffer(bs58.decode(l2.Hash)))
 
-      DAGNode.create(new Buffer('hiya'), [link1, link2], (err, node) => {
+      DAGNodeCreate(new Buffer('hiya'), [link1, link2], (err, node) => {
         expect(err).to.not.exist()
         done()
       })
     })
 
     it('toString', (done) => {
-      DAGNode.create(new Buffer('hello world'), (err, node) => {
+      DAGNodeCreate(new Buffer('hello world'), (err, node) => {
         expect(err).to.not.exist()
         const expected = 'DAGNode <QmU1Sq1B7RPQD2XcQNLB58qJUyJffVJqihcxmmN1STPMxf - data: "hello world", links: 0, size: 13>'
         expect(node.toString()).to.equal(expected)

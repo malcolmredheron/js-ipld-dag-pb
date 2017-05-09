@@ -79,6 +79,7 @@ class DAGNode {
 
 exports = module.exports = DAGNode
 exports.create = require('./create')
+exports.createSync = require('./createSync')
 exports.clone = require('./clone')
 exports.addLink = require('./addLink')
 exports.rmLink = require('./rmLink')
